@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+#
+# dexy — keep your Mac wide awake. Lid closed, on battery, no nonsense.
+#
+#   dexy            toggle on/off
+#   dexy on         stay awake (disable sleep, even with the lid shut)
+#   dexy off        restore normal sleep
+#   dexy status     show the current state
+#   dexy -h         help
+#   dexy -v         version
+#
+# Under the hood this flips macOS's `SleepDisabled` power-management flag via
+# `pmset`, which is the real "don't sleep, even lid-closed" switch. Changing it
+# needs sudo, so `on`/`off`/`toggle` may prompt for your password.
+#
+# MIT licensed. https://github.com/jonobri/dexy
+
+set -euo pipefail
+
+DEXY_VERSION="1.0.0"
+
+# Minutes to restore battery sleep to when turning off. Override with
+#   export DEXY_SLEEP_MINUTES=10
+SLEEP_RESTORE="${DEXY_SLEEP_MINUTES:-5}"
+
+# --- pretty output (honours NO_COLOR and non-TTY) ---------------------------
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  DIM=$'\033[2m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RESET=$'\033[0m'
+else
+  DIM=""; GREEN=""; YELLOW=""; RESET=""
+fi
+
+die() { printf 'dexy: %s\n' "$*" >&2; exit 1; }
+
+require_macos() {
+  [[ "$(uname -s)" == "Darwin" ]] || die "dexy only works on macOS (it needs pmset)."
+  command -v pmset >/dev/null 2>&1 || die "pmset not found — is this really macOS?"
+}
+
+# True when sleep is disabled (i.e. dexy is ON).
+is_on() {
+  [[ "$(pmset -g | awk '/SleepDisabled/ {print $2}')" == "1" ]]
+}
+
+turn_on()  { sudo pmset -b sleep 0 && sudo pmset -b disablesleep 1; }
+turn_off() { sudo pmset -b sleep "$SLEEP_RESTORE" && sudo pmset -b disablesleep 0; }
+
+print_status() {
+  if is_on; then
+    printf '%s● dexy: ON%s  %s— wide awake (battery sleep 0, lid-closed sleep disabled)%s\n' \
+      "$GREEN" "$RESET" "$DIM" "$RESET"
+  else
+    printf '%s○ dexy: OFF%s %s— normal sleep (battery sleep %sm, lid-closed enabled)%s\n' \
+      "$YELLOW" "$RESET" "$DIM" "$SLEEP_RESTORE" "$RESET"
+  fi
+}
+
+usage() {
+  cat <<'EOF'
+dexy — keep your Mac wide awake. Lid closed, on battery, no nonsense.
+
+USAGE
+  dexy [command]
+
+COMMANDS
+  (none)      toggle dexy on or off
+  on          stay awake — disable sleep, even with the lid shut
+  off         restore normal sleep
+  status      show the current state
+  -h, --help  show this help
+  -v          show version
+
+ENV
+  DEXY_SLEEP_MINUTES   minutes to restore battery sleep to on `off` (default: 5)
+  NO_COLOR             disable coloured output
+
+Toggling needs sudo (pmset), so you may be asked for your password.
+EOF
+}
+
+main() {
+  require_macos
+  case "${1:-toggle}" in
+    on)
+      if is_on; then printf '%salready on%s\n' "$DIM" "$RESET"; else turn_on; fi
+      print_status
+      ;;
+    off)
+      if is_on; then turn_off; else printf '%salready off%s\n' "$DIM" "$RESET"; fi
+      print_status
+      ;;
+    toggle)
+      if is_on; then turn_off; else turn_on; fi
+      print_status
+      ;;
+    status|-s|--status)
+      print_status
+      ;;
+    -h|--help|help)
+      usage
+      ;;
+    -v|--version|version)
+      printf 'dexy %s\n' "$DEXY_VERSION"
+      ;;
+    *)
+      die "unknown command: $1 (try 'dexy --help')"
+      ;;
+  esac
+}
+
+main "$@"
