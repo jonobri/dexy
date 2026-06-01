@@ -1,15 +1,12 @@
 # dexy ⚡
 
-**Keep your Mac wide awake. Lid closed, on battery, no nonsense.**
+**Keep your Macbook wide awake. For agentic workflows, on the go.**
 
-`dexy` is a one-word toggle for macOS's "never sleep — even with the lid shut"
-mode. Flip it on before you close the laptop to run a long job, download, or
-build on battery; flip it off when you're done and let your Mac nap normally
-again.
+`dexy` is a one-word toggle for macOS's built-in "never sleep — even with the lid shut" mode. 
 
-It's a tiny wrapper around `pmset`'s `SleepDisabled` flag — the *real* switch
-behind keeping a MacBook awake lid-closed — with a friendly interface and no
-way to forget you left it on (`dexy status` always tells you).
+Flip it on before you close the laptop, to keep your agents running, a download progressing, or whatever else that helps you remain productive always. Just add an internet connection via your hotspot, and you can keep your Macbook in action all day. 
+
+Functionally, this is just a cute little wrapper around `pmset`'s `SleepDisabled` flag. But it's easier to type the name of an ADHD medication than to remember the full `pmset` command every time.
 
 ```console
 $ dexy
