@@ -1,4 +1,4 @@
-# dexy ⚡
+# dexy 💊
 
 **Keep your Macbook wide awake. For agentic workflows, on the go.**
 
