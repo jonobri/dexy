@@ -6,7 +6,7 @@
 
 Flip it on before you close the laptop, to keep your agents running, a download progressing, or whatever else that helps you remain productive always. Just add an internet connection via your hotspot, and you can keep your Macbook in action all day. 
 
-Functionally, this is just a cute little wrapper around `pmset`'s `SleepDisabled` flag. But it's easier to type the name of an ADHD medication than to remember the full `pmset` command every time.
+Functionally, this is just a cute little wrapper around `pmset`'s `SleepDisabled` flag. But it's easier to type four characters than to remember the full `pmset` command every time.
 
 ```console
 $ dexy
@@ -68,7 +68,7 @@ sudo pmset -b sleep 0          # don't idle-sleep on battery
 sudo pmset -b disablesleep 1   # and don't sleep when the lid closes
 ```
 
-`dexy off` reverses both. That's the whole trick — no daemon, no menu-bar app,
+`dexy off` reverses both. That's the whole trick—no daemon, no menu-bar app,
 nothing running in the background. When dexy is on, it's on because the system
 flag is set, and `dexy status` reads that same flag back, so the two can never
 drift out of sync.
