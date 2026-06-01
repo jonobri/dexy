@@ -1,0 +1,77 @@
+.TH DEXY 1 "June 2026" "dexy 1.0.1" "User Commands"
+.SH NAME
+dexy \- keep your Mac wide awake; lid closed, on battery, no nonsense
+.SH SYNOPSIS
+.B dexy
+.RI [ command ]
+.SH DESCRIPTION
+.B dexy
+is a one-word toggle for macOS's "never sleep \(em even with the lid shut" mode.
+It is a thin wrapper around
+.BR pmset (1)'s
+.B SleepDisabled
+power-management flag, which is the real switch behind keeping a MacBook awake
+while the lid is closed and running on battery.
+.PP
+With no command,
+.B dexy
+toggles the state. Turning the state on or off is a privileged operation, so
+.BR on ,
+.BR off ,
+and the bare toggle run
+.BR pmset (1)
+under
+.BR sudo (8)
+and may prompt for your password.
+.B status
+never needs sudo.
+.SH COMMANDS
+.TP
+.B (none)
+Toggle dexy on or off.
+.TP
+.B on
+Stay awake \(em disable sleep, even with the lid shut.
+.TP
+.B off
+Restore normal sleep (battery idle-sleep is set back to
+.B DEXY_SLEEP_MINUTES
+minutes, default 5).
+.TP
+.B status
+Show the current state without changing it.
+.TP
+.BR \-h ", " \-\-help
+Show usage and exit.
+.TP
+.B \-v
+Show the version and exit.
+.SH ENVIRONMENT
+.TP
+.B DEXY_SLEEP_MINUTES
+Minutes to restore battery idle-sleep to when running
+.BR "dexy off" .
+Defaults to 5.
+.TP
+.B NO_COLOR
+When set, disables coloured output.
+.SH EXAMPLES
+.TP
+Stay awake before closing the lid for a long build:
+.B dexy on
+.TP
+Check whether you left it on:
+.B dexy status
+.TP
+Go back to normal, restoring a 10-minute sleep:
+.B DEXY_SLEEP_MINUTES=10 dexy off
+.SH SEE ALSO
+.BR pmset (1),
+.BR caffeinate (8)
+.SH AUTHOR
+Jonathan O'Brien.
+Source and issues:
+.UR https://github.com/jonobri/dexy
+.UE
+.SH LICENSE
+MIT.
