@@ -77,11 +77,15 @@ It's entirely optional — without it, dexy just falls back to prompting.
 
 ### Tips
 
-- **Restore a different sleep timeout.** By default `dexy off` sets battery
-  sleep back to 5 minutes. Change it:
+- **Restoring sleep.** `dexy on` remembers your battery idle-sleep timeout and
+  `dexy off` puts that exact value back, so it never clobbers your setting (or
+  leaves system sleep lower than display sleep, which makes `pmset` complain).
+  To force a specific value instead, set:
   ```sh
   export DEXY_SLEEP_MINUTES=10
   ```
+  The remembered value is the only thing dexy persists (in
+  `~/.local/state/dexy/`); on/off is always read back from the system flag.
 - **Scripting.** `dexy status` prints a stable `dexy: ON` / `dexy: OFF` line you
   can grep. Set `NO_COLOR=1` to strip ANSI colours.
 

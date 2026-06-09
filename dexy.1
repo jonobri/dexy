@@ -1,4 +1,4 @@
-.TH DEXY 1 "June 2026" "dexy 1.1.0" "User Commands"
+.TH DEXY 1 "June 2026" "dexy 1.2.0" "User Commands"
 .SH NAME
 dexy \- keep your Mac wide awake; lid closed, on battery, no nonsense
 .SH SYNOPSIS
@@ -34,9 +34,13 @@ Toggle dexy on or off.
 Stay awake \(em disable sleep, even with the lid shut.
 .TP
 .B off
-Restore normal sleep (battery idle-sleep is set back to
+Restore normal sleep. Battery idle-sleep is put back to whatever it was when
+.B dexy
+was turned on (remembered in
+.IR $XDG_STATE_HOME/dexy/battery-sleep ),
+or to
 .B DEXY_SLEEP_MINUTES
-minutes, default 5).
+if that is set, or 5 minutes as a last resort.
 .TP
 .B status
 Show the current state without changing it.
@@ -65,13 +69,26 @@ Show the version and exit.
 .SH ENVIRONMENT
 .TP
 .B DEXY_SLEEP_MINUTES
-Minutes to restore battery idle-sleep to when running
-.BR "dexy off" .
-Defaults to 5.
+Override the battery idle-sleep timeout that
+.B "dexy off"
+restores. When unset,
+.B dexy
+restores the value it remembered when turned on (falling back to 5 minutes).
 .TP
 .B NO_COLOR
 When set, disables coloured output.
 .SH FILES
+.TP
+.I $XDG_STATE_HOME/dexy/battery-sleep
+Battery idle-sleep timeout remembered when
+.B dexy
+was turned on, so
+.B "dexy off"
+can restore it.
+.RB ( $XDG_STATE_HOME
+defaults to
+.IR ~/.local/state .)
+This is the only state dexy keeps.
 .TP
 .I /etc/sudoers.d/dexy
 Optional sudoers drop-in created by

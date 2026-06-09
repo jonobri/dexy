@@ -18,15 +18,23 @@
 
 set -euo pipefail
 
-DEXY_VERSION="1.1.0"
+DEXY_VERSION="1.2.0"
 
 # Optional sudoers drop-in that lets dexy run its exact pmset commands without
 # a password. Installed/removed via `dexy setup-sudo` / `dexy remove-sudo`.
 SUDOERS_FILE="/etc/sudoers.d/dexy"
 
-# Minutes to restore battery sleep to when turning off. Override with
-#   export DEXY_SLEEP_MINUTES=10
-SLEEP_RESTORE="${DEXY_SLEEP_MINUTES:-5}"
+# dexy remembers your battery idle-sleep timeout when it turns on, so `off`
+# restores exactly what you had rather than imposing a fixed value (which could
+# end up lower than your display-sleep and make pmset complain). The remembered
+# value lives here; it's the only state dexy keeps, and on/off is still read
+# straight back from the system flag.
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dexy"
+STATE_FILE="$STATE_DIR/battery-sleep"
+
+# Fallback battery idle-sleep (minutes) for `off` when nothing is remembered
+# and DEXY_SLEEP_MINUTES isn't set.
+SLEEP_RESTORE_DEFAULT=5
 
 # --- pretty output (honours NO_COLOR and non-TTY) ---------------------------
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
@@ -47,8 +55,51 @@ is_on() {
   [[ "$(pmset -g | awk '/SleepDisabled/ {print $2}')" == "1" ]]
 }
 
-turn_on()  { sudo pmset -b sleep 0 && sudo pmset -b disablesleep 1; }
-turn_off() { sudo pmset -b sleep "$SLEEP_RESTORE" && sudo pmset -b disablesleep 0; }
+# Current configured battery idle-sleep timeout, in minutes. Matches only the
+# line whose first field is exactly "sleep" (not displaysleep/disksleep/etc).
+battery_sleep_minutes() {
+  pmset -g custom | awk '
+    /^Battery Power:/ {b=1; next}
+    /^AC Power:/      {b=0}
+    b && $1=="sleep"  {print $2; exit}'
+}
+
+# Save the current battery sleep timeout so `off` can restore it. Only overwrite
+# with a positive value: a current 0 is almost always dexy's own leftover (e.g.
+# a reboot cleared SleepDisabled but not the sleep timer), so we keep whatever
+# real value we saved last rather than clobbering it with 0.
+remember_sleep() {
+  local cur
+  cur="$(battery_sleep_minutes)"
+  [[ "$cur" =~ ^[0-9]+$ && "$cur" -gt 0 ]] || return 0
+  mkdir -p "$STATE_DIR" && printf '%s\n' "$cur" >"$STATE_FILE"
+}
+
+# Minutes `off` should restore battery idle-sleep to, in priority order:
+#   1. an explicit DEXY_SLEEP_MINUTES (manual override / back-compat)
+#   2. the value remembered when dexy was turned on
+#   3. the built-in default
+restore_minutes() {
+  local saved
+  if [[ -n "${DEXY_SLEEP_MINUTES:-}" ]]; then
+    printf '%s' "$DEXY_SLEEP_MINUTES"
+    return
+  fi
+  if [[ -r "$STATE_FILE" ]]; then
+    saved="$(cat "$STATE_FILE" 2>/dev/null)"
+    [[ "$saved" =~ ^[0-9]+$ ]] && { printf '%s' "$saved"; return; }
+  fi
+  printf '%s' "$SLEEP_RESTORE_DEFAULT"
+}
+
+turn_on() {
+  remember_sleep
+  sudo pmset -b sleep 0 && sudo pmset -b disablesleep 1
+}
+
+turn_off() {
+  sudo pmset -b sleep "$(restore_minutes)" && sudo pmset -b disablesleep 0
+}
 
 print_status() {
   if is_on; then
@@ -56,7 +107,7 @@ print_status() {
       "$GREEN" "$RESET" "$DIM" "$RESET"
   else
     printf '%s○ dexy: OFF%s %s— normal sleep (battery sleep %sm, lid-closed enabled)%s\n' \
-      "$YELLOW" "$RESET" "$DIM" "$SLEEP_RESTORE" "$RESET"
+      "$YELLOW" "$RESET" "$DIM" "$(battery_sleep_minutes)" "$RESET"
   fi
 }
 
@@ -126,7 +177,8 @@ COMMANDS
   -v            show version
 
 ENV
-  DEXY_SLEEP_MINUTES   minutes to restore battery sleep to on `off` (default: 5)
+  DEXY_SLEEP_MINUTES   override the battery sleep `off` restores to. By default
+                       dexy puts back whatever you had before turning on.
   NO_COLOR             disable coloured output
 
 Toggling needs sudo (pmset), so you may be asked for your password. Run
