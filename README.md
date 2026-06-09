@@ -37,16 +37,43 @@ ln -s "$PWD/dexy/dexy" /usr/local/bin/dexy   # or anywhere on your PATH
 ## Usage
 
 ```
-dexy            toggle on/off
-dexy on         stay awake — disable sleep, even with the lid shut
-dexy off        restore normal sleep
-dexy status     show the current state
-dexy -h         help
-dexy -v         version
+dexy              toggle on/off
+dexy on           stay awake — disable sleep, even with the lid shut
+dexy off          restore normal sleep
+dexy status       show the current state
+dexy setup-sudo   allow passwordless toggling (one-time setup)
+dexy remove-sudo  undo setup-sudo
+dexy -h           help
+dexy -v           version
 ```
 
 Toggling sleep is a privileged operation, so `on`/`off`/`toggle` run `pmset`
 under `sudo` and may ask for your password. `status` never needs sudo.
+
+### Skip the password prompt
+
+If you toggle often and don't want to type your password each time, run:
+
+```sh
+dexy setup-sudo
+```
+
+This installs a small [sudoers](https://www.sudo.ws/docs/man/sudoers.man/)
+drop-in at `/etc/sudoers.d/dexy` that lets dexy run **only** the exact `pmset`
+commands it needs — battery idle-sleep and the lid-closed sleep toggle —
+without a password. It validates the rule with `visudo` *before* installing it
+(a malformed sudoers file can lock you out of `sudo`), and asks for your
+password just that once, to write the file. The rule grants nothing beyond
+those `pmset` calls — no general `pmset` access, no other binaries:
+
+```
+<you> ALL=(root) NOPASSWD: /usr/bin/pmset -b sleep [0-9]*, \
+                           /usr/bin/pmset -b disablesleep 0, \
+                           /usr/bin/pmset -b disablesleep 1
+```
+
+Undo it any time with `dexy remove-sudo` (or `sudo rm /etc/sudoers.d/dexy`).
+It's entirely optional — without it, dexy just falls back to prompting.
 
 ### Tips
 

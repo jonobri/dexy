@@ -1,4 +1,4 @@
-.TH DEXY 1 "June 2026" "dexy 1.0.1" "User Commands"
+.TH DEXY 1 "June 2026" "dexy 1.1.0" "User Commands"
 .SH NAME
 dexy \- keep your Mac wide awake; lid closed, on battery, no nonsense
 .SH SYNOPSIS
@@ -41,6 +41,22 @@ minutes, default 5).
 .B status
 Show the current state without changing it.
 .TP
+.B setup-sudo
+Allow passwordless toggling. Installs a
+.BR sudoers (5)
+drop-in at
+.I /etc/sudoers.d/dexy
+that lets you run only the exact
+.BR pmset (1)
+commands dexy uses \(em without a password. The rule is validated with
+.BR visudo (8)
+before installation, which asks for your password once to write the file.
+Optional; without it, dexy simply prompts on each toggle.
+.TP
+.B remove-sudo
+Remove the drop-in installed by
+.BR "dexy setup-sudo" .
+.TP
 .BR \-h ", " \-\-help
 Show usage and exit.
 .TP
@@ -55,6 +71,18 @@ Defaults to 5.
 .TP
 .B NO_COLOR
 When set, disables coloured output.
+.SH FILES
+.TP
+.I /etc/sudoers.d/dexy
+Optional sudoers drop-in created by
+.B "dexy setup-sudo"
+and removed by
+.BR "dexy remove-sudo" .
+Grants passwordless
+.BR sudo (8)
+for only the
+.BR pmset (1)
+commands dexy runs.
 .SH EXAMPLES
 .TP
 Stay awake before closing the lid for a long build:
@@ -65,9 +93,14 @@ Check whether you left it on:
 .TP
 Go back to normal, restoring a 10-minute sleep:
 .B DEXY_SLEEP_MINUTES=10 dexy off
+.TP
+Stop being asked for your password on every toggle:
+.B dexy setup-sudo
 .SH SEE ALSO
 .BR pmset (1),
-.BR caffeinate (8)
+.BR caffeinate (8),
+.BR sudoers (5),
+.BR visudo (8)
 .SH AUTHOR
 Jonathan O'Brien.
 Source and issues:

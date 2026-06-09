@@ -11,13 +11,18 @@
 #
 # Under the hood this flips macOS's `SleepDisabled` power-management flag via
 # `pmset`, which is the real "don't sleep, even lid-closed" switch. Changing it
-# needs sudo, so `on`/`off`/`toggle` may prompt for your password.
+# needs sudo, so `on`/`off`/`toggle` may prompt for your password. Run
+# `dexy setup-sudo` once to skip the prompt (see that command for details).
 #
 # MIT licensed. https://github.com/jonobri/dexy
 
 set -euo pipefail
 
-DEXY_VERSION="1.0.1"
+DEXY_VERSION="1.1.0"
+
+# Optional sudoers drop-in that lets dexy run its exact pmset commands without
+# a password. Installed/removed via `dexy setup-sudo` / `dexy remove-sudo`.
+SUDOERS_FILE="/etc/sudoers.d/dexy"
 
 # Minutes to restore battery sleep to when turning off. Override with
 #   export DEXY_SLEEP_MINUTES=10
@@ -55,6 +60,54 @@ print_status() {
   fi
 }
 
+# Emit the sudoers rule, scoped to exactly the pmset commands dexy runs:
+# battery idle-sleep to any number of minutes, and the lid-closed sleep toggle.
+# Nothing else is granted — no general pmset access, no other binaries.
+sudoers_rule() {
+  local user pmset_path
+  user="$(id -un)"
+  pmset_path="$(command -v pmset)"
+  cat <<EOF
+# Installed by 'dexy setup-sudo' — lets dexy toggle sleep without a password.
+# Scoped to only the pmset commands dexy uses. Remove with 'dexy remove-sudo'
+# (or: sudo rm $SUDOERS_FILE).
+$user ALL=(root) NOPASSWD: $pmset_path -b sleep [0-9]*, $pmset_path -b disablesleep 0, $pmset_path -b disablesleep 1
+EOF
+}
+
+setup_sudo() {
+  require_macos
+  local tmp
+  tmp="$(mktemp)" || die "could not create a temporary file"
+  # shellcheck disable=SC2064
+  trap "rm -f '$tmp'" EXIT
+  sudoers_rule >"$tmp"
+  # Validate before we ever touch /etc — a broken sudoers file can lock you out
+  # of sudo entirely. visudo -cf needs no root, so this can't prompt.
+  visudo -cf "$tmp" >/dev/null 2>&1 \
+    || die "generated sudoers rule failed validation — nothing was changed"
+  printf '%sinstalling %s (you may be asked for your password once)…%s\n' \
+    "$DIM" "$SUDOERS_FILE" "$RESET"
+  sudo install -m 0440 -o root -g wheel "$tmp" "$SUDOERS_FILE" \
+    || die "could not install $SUDOERS_FILE"
+  printf '%s✓%s passwordless toggling enabled — %sdexy on/off/toggle no longer prompt%s\n' \
+    "$GREEN" "$RESET" "$DIM" "$RESET"
+  printf '%s  undo any time with: dexy remove-sudo%s\n' "$DIM" "$RESET"
+}
+
+remove_sudo() {
+  require_macos
+  if [[ ! -e "$SUDOERS_FILE" ]]; then
+    printf '%snothing to remove — %s is not installed%s\n' "$DIM" "$SUDOERS_FILE" "$RESET"
+    return 0
+  fi
+  printf '%sremoving %s (you may be asked for your password)…%s\n' \
+    "$DIM" "$SUDOERS_FILE" "$RESET"
+  sudo rm -f "$SUDOERS_FILE" || die "could not remove $SUDOERS_FILE"
+  printf '%s✓%s removed — dexy will prompt for your password again on toggle\n' \
+    "$GREEN" "$RESET"
+}
+
 usage() {
   cat <<'EOF'
 dexy — keep your Mac wide awake. Lid closed, on battery, no nonsense.
@@ -63,18 +116,22 @@ USAGE
   dexy [command]
 
 COMMANDS
-  (none)      toggle dexy on or off
-  on          stay awake — disable sleep, even with the lid shut
-  off         restore normal sleep
-  status      show the current state
-  -h, --help  show this help
-  -v          show version
+  (none)        toggle dexy on or off
+  on            stay awake — disable sleep, even with the lid shut
+  off           restore normal sleep
+  status        show the current state
+  setup-sudo    allow passwordless toggling (installs a scoped sudoers rule)
+  remove-sudo   undo setup-sudo
+  -h, --help    show this help
+  -v            show version
 
 ENV
   DEXY_SLEEP_MINUTES   minutes to restore battery sleep to on `off` (default: 5)
   NO_COLOR             disable coloured output
 
-Toggling needs sudo (pmset), so you may be asked for your password.
+Toggling needs sudo (pmset), so you may be asked for your password. Run
+`dexy setup-sudo` once to skip the prompt — it installs a sudoers rule scoped
+to only the pmset commands dexy uses.
 EOF
 }
 
@@ -95,6 +152,12 @@ main() {
       ;;
     status|-s|--status)
       print_status
+      ;;
+    setup-sudo)
+      setup_sudo
+      ;;
+    remove-sudo)
+      remove_sudo
       ;;
     -h|--help|help)
       usage
